@@ -1168,7 +1168,7 @@
     var t = m.b - P * (1 - m.s);
     return (덧 && 덧.x ? "translateX(" + 덧.x + ") " : "") + "translateY(" + t.toFixed(2) + "px) scale(" + m.s.toFixed(5) + ")" + (덧 && 덧.r ? " rotate(" + 덧.r + "deg)" : "");
   }
-  function 곡선(s) {   // CSS 이징 글 → 함수
+  function CSS곡선(s) {   // CSS 이징 글 → 함수 (이름 주의: 곡선(t, 종류)은 스크롤 곡선이다 — 09-26 겹쳐서 슬라이드가 맨 위로 튀었다)
     var m = { "ease": [.25, .1, .25, 1], "ease-in": [.42, 0, 1, 1], "ease-out": [0, 0, .58, 1], "ease-in-out": [.42, 0, .58, 1], "linear": [0, 0, 1, 1] }[s];
     if (!m) { var r = /cubic-bezier\(([^)]+)\)/.exec(s || ""); m = r ? r[1].split(",").map(Number) : [.25, .1, .25, 1]; }
     function 베(p1, p2, t) { return 3 * p1 * t * (1 - t) * (1 - t) + 3 * p2 * t * t * (1 - t) + t * t * t; }
@@ -1177,7 +1177,7 @@
   var 판트윈번호 = 0;
   function 판트윈(목표, 불투명) {   // 원고판 transform·opacity 를 CSS transition 대신 한 틀씩 옮긴다(09-26 아이폰 튕김). 시간·이징은 원고판 transition 글에서 읽는다
     var tr = 원고판.style.transition || "";
-    function 잰(이름) { var r = new RegExp("(?:^|,)\\s*" + 이름 + "\\s+([\\d.]+)s\\s*(cubic-bezier\\([^)]*\\)|[a-z-]+)?").exec(tr); return r ? { 초: parseFloat(r[1]), f: 곡선(r[2] || "ease") } : null; }
+    function 잰(이름) { var r = new RegExp("(?:^|,)\\s*" + 이름 + "\\s+([\\d.]+)s\\s*(cubic-bezier\\([^)]*\\)|[a-z-]+)?").exec(tr); return r ? { 초: parseFloat(r[1]), f: CSS곡선(r[2] || "ease") } : null; }
     var 모 = 잰("transform"), 불 = 잰("opacity"), 필 = /filter\s+[\d.]+s\s*(cubic-bezier\([^)]*\)|[a-z-]+)?/.exec(tr);
     원고판.style.transition = 필 ? 필[0] : "none";   // CSS 로는 이제 아무것도 안 움직인다(필터는 판빛이 따로)
     var 번 = ++판트윈번호, cs = getComputedStyle(원고판);
