@@ -1136,14 +1136,20 @@
   //    (09-24 잔상 고침 — 페니봇 진단: 막을 도착 자리에 미리 쳐 두면 스크롤 동안 막 사이로 앞 칸이 지나가고, 확대가 도착 뒤에 따로 시작해 두 박자가 된다)
   var 원고판 = document.getElementById("원고틀");
   var 판필터값 = "";
-  function 판필터(v) {   // 원고 전체 filter 대신 화면 크기 막의 backdrop-filter(사파리 메모리 — 09-26 아이폰 튕김). 시간은 원고판 transition 의 filter 항목을 따른다
+  var 시험끔 = { fx: /[?&]nofx/.test(location.search), blend: /[?&]noblend/.test(location.search), iso: /[?&]noiso/.test(location.search) };   // 사파리 튕김 범인 가리기(09-26)
+  if (시험끔.blend) document.head.insertAdjacentHTML("beforeend", "<style>#원고 * { mix-blend-mode: normal !important; }</style>");
+  if (!시험끔.iso) [].forEach.call(document.querySelectorAll("#원고 > *"), function (c) {   // 섞기(mix-blend)가 든 칸은 그 칸 안에서만 섞이게 — 안 그러면 사파리가 원고 전체(17만 px)를 한 그룹으로 그린다
+    if ([].some.call(c.querySelectorAll("*"), function (x) { return getComputedStyle(x).mixBlendMode !== "normal"; })) c.style.isolation = "isolate";
+  });
+  function 판필터(v) {
+    if (시험끔.fx) return;   // 원고 전체 filter 대신 화면 크기 막의 backdrop-filter(사파리 메모리 — 09-26 아이폰 튕김). 시간은 원고판 transition 의 filter 항목을 따른다
     var e = document.getElementById("판빛"); if (!e) return;
     var 값 = v && !/^blur\(0\)( brightness\(1\))?( saturate\(1\))?$/.test(v) ? v : "none";
-    var t = (원고판.style.transition || "").match(/filter ([^,]+)/);
+    var t = (원고판.style.transition || "").match(/filter\s+([\d.]+s\s*(?:cubic-bezier\([^)]*\)|[a-z-]+)?)/);   // cubic-bezier 안 쉼표에서 끊기지 않게(09-26)
     e.style.transition = t ? "backdrop-filter " + t[1] + ", -webkit-backdrop-filter " + t[1] : "none";
     e.style.webkitBackdropFilter = 값; e.style.backdropFilter = 값; 판필터값 = 값 === "none" ? "" : 값;
   }
-  function 판빛효과(이름) { var e = document.getElementById("판빛"); if (!e) return; e.classList.remove(이름); void e.offsetWidth; e.classList.add(이름); }   // 확대·축소·변신은 바깥 틀에 — 안쪽 #원고의 흔들림 효과와 안 부딪히게
+  function 판빛효과(이름) { var e = document.getElementById("판빛"); if (!e || 시험끔.fx) return; e.classList.remove(이름); void e.offsetWidth; e.classList.add(이름); }   // 확대·축소·변신은 바깥 틀에 — 안쪽 #원고의 흔들림 효과와 안 부딪히게
   var 배 = { s: 1, b: 0 };
   function 틀위() { var t = 0, e = 원고판; while (e) { t += e.offsetTop; e = e.offsetParent; } return t; }   // transform 에 안 흔들리는 offsetTop 으로
   function 비춤(y, m) { m = m || 배; return m.s * y + m.b; }
@@ -1162,7 +1168,37 @@
     var t = m.b - P * (1 - m.s);
     return (덧 && 덧.x ? "translateX(" + 덧.x + ") " : "") + "translateY(" + t.toFixed(2) + "px) scale(" + m.s.toFixed(5) + ")" + (덧 && 덧.r ? " rotate(" + 덧.r + "deg)" : "");
   }
+  function 곡선(s) {   // CSS 이징 글 → 함수
+    var m = { "ease": [.25, .1, .25, 1], "ease-in": [.42, 0, 1, 1], "ease-out": [0, 0, .58, 1], "ease-in-out": [.42, 0, .58, 1], "linear": [0, 0, 1, 1] }[s];
+    if (!m) { var r = /cubic-bezier\(([^)]+)\)/.exec(s || ""); m = r ? r[1].split(",").map(Number) : [.25, .1, .25, 1]; }
+    function 베(p1, p2, t) { return 3 * p1 * t * (1 - t) * (1 - t) + 3 * p2 * t * t * (1 - t) + t * t * t; }
+    return function (x) { var lo = 0, hi = 1, t = x; for (var i = 0; i < 22; i++) { t = (lo + hi) / 2; if (베(m[0], m[2], t) < x) lo = t; else hi = t; } return 베(m[1], m[3], t); };
+  }
+  var 판트윈번호 = 0;
+  function 판트윈(목표, 불투명) {   // 원고판 transform·opacity 를 CSS transition 대신 한 틀씩 옮긴다(09-26 아이폰 튕김). 시간·이징은 원고판 transition 글에서 읽는다
+    var tr = 원고판.style.transition || "";
+    function 잰(이름) { var r = new RegExp("(?:^|,)\\s*" + 이름 + "\\s+([\\d.]+)s\\s*(cubic-bezier\\([^)]*\\)|[a-z-]+)?").exec(tr); return r ? { 초: parseFloat(r[1]), f: 곡선(r[2] || "ease") } : null; }
+    var 모 = 잰("transform"), 불 = 잰("opacity"), 필 = /filter\s+[\d.]+s\s*(cubic-bezier\([^)]*\)|[a-z-]+)?/.exec(tr);
+    원고판.style.transition = 필 ? 필[0] : "none";   // CSS 로는 이제 아무것도 안 움직인다(필터는 판빛이 따로)
+    var 번 = ++판트윈번호, cs = getComputedStyle(원고판);
+    var a0 = new DOMMatrix(cs.transform === "none" ? "" : cs.transform), o0 = parseFloat(cs.opacity);
+    원고판.style.transform = 목표; var a1 = new DOMMatrix(getComputedStyle(원고판).transform === "none" ? "" : getComputedStyle(원고판).transform);
+    if (!모) { if (불투명 != null) 원고판.style.opacity = 불투명; return; }
+    var 키 = ["a", "b", "c", "d", "e", "f"], 앞 = null, 앞불 = null, t0 = performance.now();
+    function 놓기(k, ko) {
+      앞 = "matrix(" + 키.map(function (q) { return (a0[q] + (a1[q] - a0[q]) * k).toFixed(6); }).join(",") + ")"; 원고판.style.transform = 앞;
+      if (불투명 != null) { 앞불 = String((o0 + (+불투명 - o0) * ko).toFixed(4)); 원고판.style.opacity = 앞불; }
+    }
+    놓기(0, 0);
+    (function 틀(now) {
+      if (번 !== 판트윈번호 || 원고판.style.transform !== 앞 || (앞불 != null && 원고판.style.opacity !== 앞불)) return;   // 다른 이가 판을 잡았다
+      var x = Math.min(1, (now - t0) / (모.초 * 1000)), xo = 불 ? Math.min(1, (now - t0) / (불.초 * 1000)) : x;
+      if (x >= 1 && xo >= 1) { 원고판.style.transform = 목표; if (불투명 != null) 원고판.style.opacity = 불투명; return; }
+      놓기(모.f(x), 불 ? 불.f(xo) : 모.f(x)); requestAnimationFrame(틀);
+    })(performance.now());
+  }
   function 틀놓기(m, P, 덧) {   // 전환 없이 바로. 같은 비춤이면 원점만 옮겨도 화면은 그대로다
+    판트윈번호++;
     if (P == null) P = window.scrollY + window.innerHeight / 2;
     원고판.style.transition = "none";
     원고판.style.transformOrigin = "50% " + (P - 틀위()) + "px";
@@ -1352,7 +1388,7 @@
     if (!원고판.style.transform && !판필터값) return;
     var P = window.scrollY + window.innerHeight / 2;
     틀놓기(배, P); void 원고판.offsetWidth;
-    원고판.style.transition = "transform .3s ease-out, filter .3s"; 원고판.style.transform = 변환글({ s: 1, b: 0 }, P); 판필터("");
+    원고판.style.transition = "transform .3s ease-out, filter .3s"; 판필터(""); 판트윈(변환글({ s: 1, b: 0 }, P));
     배 = { s: 1, b: 0 };
     setTimeout(function () { if (Math.abs(배.s - 1) < 1e-4 && Math.abs(배.b) < 0.01) { 원고판.style.transition = ""; 원고판.style.transform = ""; 원고판.style.transformOrigin = ""; } }, 320);
   }
@@ -1402,7 +1438,7 @@
       도착닿음();   // 반짝 소리·글로우는 나타나기 시작할 때
       판막.style.transition = "opacity .7s ease-out"; 판막.style.opacity = "0";
       원고판.style.transition = "filter 1.5s cubic-bezier(.2,.7,.2,1), transform 1.5s cubic-bezier(.2,.7,.2,1)";
-      판필터("blur(0) brightness(1) saturate(1)"); 원고판.style.transform = 변환글(m1, P);
+      판필터("blur(0) brightness(1) saturate(1)"); 판트윈(변환글(m1, P));
       움직임.id = setTimeout(끝, 1520);
     }, 420);
   }
@@ -1441,14 +1477,14 @@
     var 끝 = function () { 전환끝(m1); };
     틀놓기(m0, P); void 원고판.offsetWidth;
     원고판.style.transition = "transform .32s cubic-bezier(.5,0,.9,.5), opacity .32s ease-in";
-    원고판.style.transform = 변환글(m0, P, { x: "-35%" }); 원고판.style.opacity = "0";
+    판트윈(변환글(m0, P, { x: "-35%" }), "0");
     움직임 = { 종류: "칸", 끝y: d.끝, 정리: 끝 };
     움직임.id = setTimeout(function () {
       window.scrollTo(0, d.끝); 막미리(d);
       var P2 = d.끝 + H / 2;
       틀놓기(m1, P2, { x: "35%" }); void 원고판.offsetWidth;
       원고판.style.transition = "transform .5s cubic-bezier(.15,.8,.25,1), opacity .4s ease-out";
-      원고판.style.transform = 변환글(m1, P2, { x: "0%" }); 원고판.style.opacity = "1";
+      판트윈(변환글(m1, P2, { x: "0%" }), "1");
       움직임.id = setTimeout(끝, 520);
     }, 330);
   }
@@ -1458,7 +1494,7 @@
     var 끝 = function () { 전환끝(m1); };
     틀놓기(m0, P); void 원고판.offsetWidth;   // 화면 가운데를 붙잡고 커지니 막 밖(위 칸)은 창 안으로 안 들어온다
     원고판.style.transition = "filter .45s ease-in, transform .45s ease-in";
-    판필터("blur(14px) brightness(.6)"); 원고판.style.transform = 변환글(둘레(m0, 1.05, P), P);
+    판필터("blur(14px) brightness(.6)"); 판트윈(변환글(둘레(m0, 1.05, P), P));
     움직임 = { 종류: "칸", 끝y: d.끝, 정리: 끝 };
     움직임.id = setTimeout(function () {
       window.scrollTo(0, d.끝); 막미리(d);
@@ -1466,7 +1502,7 @@
       틀놓기(둘레(m1, 1.05, P2), P2); 판필터("blur(14px) brightness(.6)");
       void 원고판.offsetWidth;
       원고판.style.transition = "filter .75s ease-out, transform .8s cubic-bezier(.2,.8,.2,1)";
-      판필터("blur(0) brightness(1)"); 원고판.style.transform = 변환글(m1, P2);
+      판필터("blur(0) brightness(1)"); 판트윈(변환글(m1, P2));
       움직임.id = setTimeout(끝, 800);
     }, 450);
   }
@@ -1476,7 +1512,7 @@
     var 끝 = function () { 전환끝(m1); };
     틀놓기(m0, P); void 원고판.offsetWidth;
     원고판.style.transition = "filter .5s ease-in, transform .5s ease-in";
-    판필터("blur(12px) brightness(.75)"); 원고판.style.transform = 변환글(둘레(m0, 1.06, P), P, { r: -1.6 });
+    판필터("blur(12px) brightness(.75)"); 판트윈(변환글(둘레(m0, 1.06, P), P, { r: -1.6 }));
     움직임 = { 종류: "칸", 끝y: d.끝, 정리: 끝 };
     움직임.id = setTimeout(function () {
       막걷기();
@@ -1485,7 +1521,7 @@
       틀놓기(둘레(m1, 1.07, P2), P2, { r: 1.8 }); 판필터("blur(12px) brightness(.75)");
       void 원고판.offsetWidth;
       원고판.style.transition = "filter .8s ease-out, transform .8s cubic-bezier(.2,.8,.2,1)";
-      판필터("blur(0) brightness(1)"); 원고판.style.transform = 변환글(m1, P2, { r: 0 });
+      판필터("blur(0) brightness(1)"); 판트윈(변환글(m1, P2, { r: 0 }));
       움직임.id = setTimeout(끝, 820);
     }, 500);
   }
@@ -1495,7 +1531,7 @@
     var 끝 = function () { 전환끝(m1); };
     틀놓기(m0, P); void 원고판.offsetWidth;
     원고판.style.transition = "filter .32s ease-in, transform .32s cubic-bezier(.5,0,.9,.6)";
-    판필터("blur(6px)"); 원고판.style.transform = 변환글(둘레(m0, 1.13, P), P);
+    판필터("blur(6px)"); 판트윈(변환글(둘레(m0, 1.13, P), P));
     움직임 = { 종류: "칸", 끝y: d.끝, 정리: 끝 };
     움직임.id = setTimeout(function () {
       막걷기();
@@ -1504,7 +1540,7 @@
       틀놓기(둘레(m1, 1.05, P2), P2); 판필터("blur(6px)");
       void 원고판.offsetWidth;
       원고판.style.transition = "filter .5s ease-out, transform .55s cubic-bezier(.2,.8,.2,1)";
-      판필터("blur(0)"); 원고판.style.transform = 변환글(m1, P2);
+      판필터("blur(0)"); 판트윈(변환글(m1, P2));
       움직임.id = setTimeout(끝, 570);
     }, 320);
   }
