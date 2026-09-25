@@ -1747,6 +1747,7 @@
     if (!window.IntersectionObserver) { 칸들.forEach(싣기); return; }
     var 가까이 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) 싣기(e.target); }); }, { rootMargin: "400% 0px 400% 0px" });
     var 멀리 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (!e.isIntersecting) 내리기(e.target); }); }, { rootMargin: "1000% 0px 1000% 0px" });
+    그림들.forEach(function (g) { g.addEventListener("error", function () { if (!g.dataset.실림 || g.getAttribute("src") === 빈) return; var n = +(g.dataset.재시도 || 0); if (n >= 3) return; g.dataset.재시도 = n + 1; setTimeout(function () { if (g.dataset.실림) g.src = g.dataset.src + "?r=" + (n + 1); }, 1500 * (n + 1)); }); });   // 09-26 페니봇: 깃허브 CDN 이 그림 하나에 503 을 뱉으면 그 칸이 빈 채로 남았다 — 1.5·3·4.5초 뒤 세 번까지 다시 받는다
     칸들.forEach(function (칸) { 가까이.observe(칸); 멀리.observe(칸); });
     window.__실린그림 = function () { return 그림들.filter(function (g) { return g.dataset.실림; }).length; };
   })();
