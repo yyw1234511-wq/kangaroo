@@ -956,15 +956,30 @@
   function 블롭(b64, 종류) { if (주소인가(b64)) return b64; return URL.createObjectURL(new Blob([바이트(b64)], { type: 종류 || "audio/mpeg" })); }
 
   // ── 배경 곡 ──
-  function 준비(이름) {
-    if (곡들[이름]) return 곡들[이름];
-    var el = new Audio(); el.src = 블롭(곡원본[이름], "audio/mp4");   /* 곡은 AAC(09-25) */ el.loop = !/^(1[02468]|20)_/.test(이름);   /* 20_라흐끝까지: 끝까지 한 번(09-25) */   // 한 번 흐르고 끝나는 곡: 10_라흐후반·12_라흐희망·14_휘영절정   // 마지막 곡(라흐)은 한 번 흐르고 끝난다
-     el.preload = "auto"; el.setAttribute("playsinline", "");
+  var 이어틀기 = { "11_라흐애도": 1 };
+  var 곡풀 = [], 곡자리기억 = {};   // 09-26 페니봇: 곡마다 <audio> 15개를 다 띄워 두니 아이폰(WKWebView)이 40단계쯤 메모리로 튕겼다 — 첫 손길에 슬롯 셋만 열어 두고 src 를 갈아 끼운다
+  function 곡틀만들기() {
+    var el = new Audio(); el.preload = "auto"; el.setAttribute("playsinline", "");
     var gain = null;
     if (ctx) { try { var src = ctx.createMediaElementSource(el); gain = ctx.createGain(); gain.gain.value = 0; src.connect(gain); gain.connect(bgmBus); } catch (e) { gain = null; } }
     if (!gain) el.volume = 0;
-    곡들[이름] = { el: el, gain: gain, 끄기: null };
-    return 곡들[이름];
+    var s = { el: el, gain: gain, 끄기: null, 이름: null }; 곡풀.push(s); return s;
+  }
+  function 준비(이름) {
+    if (곡들[이름]) return 곡들[이름];
+    var s = null, i;
+    for (i = 0; i < 곡풀.length; i++) if (!곡풀[i].이름) { s = 곡풀[i]; break; }
+    if (!s) for (i = 0; i < 곡풀.length; i++) if (곡풀[i].이름 !== 지금.t && 곡풀[i].el.paused) { s = 곡풀[i]; break; }
+    if (!s && 곡풀.length < 4) s = 곡틀만들기();
+    if (!s) { var 약 = null; for (i = 0; i < 곡풀.length; i++) { var c = 곡풀[i]; if (c.이름 === 지금.t) continue; var g = c.gain ? c.gain.gain.value : c.el.volume; if (!약 || g < 약.g) 약 = { s: c, g: g }; } if (약) { s = 약.s; try { s.el.pause(); } catch (e) {} } }   // 넷 다 바쁘면 제일 작게 나는 것(꺼지는 중)을 끊고 쓴다 — 새 <audio> 는 아이폰에서 손길 없이 못 튼다
+    if (!s) s = 곡틀만들기();
+    if (s.이름) { try { 곡자리기억[s.이름] = s.el.currentTime; } catch (e) {} delete 곡들[s.이름]; }
+    s.이름 = 이름; clearTimeout(s.끄기);
+    s.el.loop = !/^(1[02468]|20)_/.test(이름);   /* 20_라흐끝까지: 끝까지 한 번(09-25) */   // 한 번 흐르고 끝나는 곡: 10_라흐후반·12_라흐희망·14_휘영절정
+    s.el.src = 블롭(곡원본[이름], "audio/mp4");   /* 곡은 AAC(09-25) */
+    if (이어틀기[이름] && 곡자리기억[이름]) { var t = 곡자리기억[이름], 맞추기 = function () { try { s.el.currentTime = t; } catch (e) {} s.el.removeEventListener("loadedmetadata", 맞추기); }; s.el.addEventListener("loadedmetadata", 맞추기); }   // 애도 곡은 멈췄던 데서 이어서
+    곡들[이름] = s;
+    return s;
   }
   function 크기(곡, v, 초, 끝나면) {
     clearTimeout(곡.끄기);
@@ -973,7 +988,6 @@
     if (끝나면) 곡.끄기 = setTimeout(끝나면, 초 * 1000 + 80);
   }
   // 애도 곡은 세 자리(16·18·29장)에서 멈췄던 데서 이어 튼다 — 매번 처음부터면 절정(60초)을 아무도 못 듣는다(페니봇 09-24)
-  var 이어틀기 = { "11_라흐애도": 1 };
   function 바꾸기(이름, v, 뚝, 처음, 빠르게) {
     var 넘김 = 빠르게 ? 0.8 : FADE;
     if (이름 === 지금.t) { if (이름 && v !== 지금.v) 크기(곡들[이름], v, FADE * 1.4); 지금.v = v; return; }
@@ -1625,14 +1639,26 @@
   });
 
   // ── 환경음 (음악 밑에 따로 깔린다) ──
-  function 환경준비(이름) {
-    if (환경들[이름]) return 환경들[이름];
-    var el = new Audio(); el.src = 블롭(환경원본[이름]); el.loop = true; el.preload = "auto"; el.setAttribute("playsinline", "");
+  var 환경풀 = [];   // 09-26 페니봇: 환경음도 슬롯 둘만(곡 풀과 같은 이유)
+  function 환경틀만들기() {
+    var el = new Audio(); el.loop = true; el.preload = "auto"; el.setAttribute("playsinline", "");
     var gain = null;
     if (ctx) { try { var src = ctx.createMediaElementSource(el); gain = ctx.createGain(); gain.gain.value = 0; src.connect(gain); gain.connect(sfxBus); } catch (e) { gain = null; } }
     if (!gain) el.volume = 0;
-    환경들[이름] = { el: el, gain: gain, 끄기: null, 환경: true };
-    return 환경들[이름];
+    var s = { el: el, gain: gain, 끄기: null, 환경: true, 이름: null }; 환경풀.push(s); return s;
+  }
+  function 환경준비(이름) {
+    if (환경들[이름]) return 환경들[이름];
+    var s = null, i;
+    for (i = 0; i < 환경풀.length; i++) if (!환경풀[i].이름) { s = 환경풀[i]; break; }
+    if (!s) for (i = 0; i < 환경풀.length; i++) if (환경풀[i].이름 !== 지금환경.t && 환경풀[i].el.paused) { s = 환경풀[i]; break; }
+    if (!s && 환경풀.length < 2) s = 환경틀만들기();
+    if (!s) for (i = 0; i < 환경풀.length; i++) if (환경풀[i].이름 !== 지금환경.t) { s = 환경풀[i]; try { s.el.pause(); } catch (e) {} break; }
+    if (!s) s = 환경틀만들기();
+    if (s.이름) delete 환경들[s.이름];
+    s.이름 = 이름; clearTimeout(s.끄기); s.el.src = 블롭(환경원본[이름]);
+    환경들[이름] = s;
+    return s;
   }
   function 환경바꾸기(이름, v) {
     if (이름 === 지금환경.t) return;
@@ -1643,18 +1669,29 @@
 
   // ── 효과음 ──
   function 효과음준비() {
-    if (ctx && 주소인가(효과음원본[Object.keys(효과음원본)[0]])) {   // 나눠 싣기: 원고에 처음 나오는 차례대로 셋씩 받아 푼다(한꺼번에 풀면 폰 메모리가 튄다)
-      var 차례 = [], 봄 = {};
-      function 넣기(n) { if (n && 효과음원본[n] && !봄[n]) { 봄[n] = 1; 차례.push(n); } }
-      document.querySelectorAll("#원고 [data-sfx], #원고 [data-snd], #원고 [data-tap]").forEach(function (el) { 넣기(el.dataset.sfx); 넣기(el.dataset.snd); 넣기(el.dataset.tap); });
-      Object.keys(효과음원본).forEach(넣기);
-      var 다음받기 = function () {
-        var n = 차례.shift(); if (!n) return;
-        fetch(효과음원본[n]).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
-          return new Promise(function (ok) { var p = ctx.decodeAudioData(buf, function (b) { 효과버퍼[n] = b; ok(); }, function () { ok(); }); if (p && p.catch) p.catch(function () { ok(); }); });
-        }).catch(function () {}).then(다음받기);
-      };
-      다음받기(); 다음받기(); 다음받기();
+    if (ctx && 주소인가(효과음원본[Object.keys(효과음원본)[0]])) {   // 나눠 싣기: 화면 앞 8화면·뒤 2화면 안의 칸 소리만 풀어 두고 멀어지면 버린다(전부 풀면 PCM 100MB — 09-26 아이폰 튕김)
+      var 자리표 = {}, 늘 = [], 받는중 = {}, 줄 = [], 돌고 = 0;
+      document.querySelectorAll("#원고 [data-sfx], #원고 [data-snd], #원고 [data-tap]").forEach(function (el) { [el.dataset.sfx, el.dataset.snd, el.dataset.tap].forEach(function (n) { if (n && 효과음원본[n]) (자리표[n] = 자리표[n] || []).push(el); }); });
+      Object.keys(효과음원본).forEach(function (n) { if (!자리표[n]) 늘.push(n); });   // 칸에 안 붙은 소리(이동·변신)는 늘 둔다
+      function 돌리기() {
+        while (돌고 < 3 && 줄.length) (function (n) {
+          돌고++;
+          fetch(효과음원본[n]).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+            return new Promise(function (ok) { var p = ctx.decodeAudioData(buf, function (b) { 효과버퍼[n] = b; ok(); }, function () { ok(); }); if (p && p.catch) p.catch(function () { ok(); }); });
+          }).catch(function () {}).then(function () { 돌고--; delete 받는중[n]; 돌리기(); });
+        })(줄.shift());
+      }
+      function 받기(n) { if (효과버퍼[n] || 받는중[n]) return; 받는중[n] = 1; 줄.push(n); 돌리기(); }
+      function 효과음정리() {
+        var H = window.innerHeight;
+        Object.keys(자리표).forEach(function (n) {
+          var 가까움 = false, 멂 = true;
+          for (var i = 0; i < 자리표[n].length; i++) { var r = 자리표[n][i].getBoundingClientRect(); if (r.bottom > -2 * H && r.top < 8 * H) 가까움 = true; if (r.bottom > -4 * H && r.top < 12 * H) 멂 = false; }
+          if (가까움) 받기(n); else if (멂 && 효과버퍼[n]) delete 효과버퍼[n];
+        });
+      }
+      늘.forEach(받기); 효과음정리(); setInterval(효과음정리, 1500);
+      window.__효과음정리 = 효과음정리; window.__효과버퍼수 = function () { return Object.keys(효과버퍼).length; };
       return;
     }
     Object.keys(효과음원본).forEach(function (n) {
@@ -1736,7 +1773,7 @@
     흔칸고르기(원고); 원고.setAttribute("data-fx", fx);
     if (fx === "지진글리치") 판빛효과("지진");
   }
-  // 나눠 싣기(사이트판): 그림은 화면 앞뒤 4화면 안에 든 칸만 받고, 10화면 밖으로 멀어지면 내려놓는다(09-26 아이폰 사파리 튕김 — 그림 774장을 한꺼번에 풀었다)
+  // 나눠 싣기(사이트판): 그림은 화면 앞뒤 3화면 안에 든 칸만 받고, 6화면 밖으로 멀어지면 내려놓는다(09-26 4·10→3·6, 아이폰 메모리)(09-26 아이폰 사파리 튕김 — 그림 774장을 한꺼번에 풀었다)
   (function () {
     var 그림들 = [].slice.call(document.querySelectorAll("#원고 img[data-src]")); if (!그림들.length) return;
     var 칸들 = [], 칸그림 = new Map();
@@ -1745,8 +1782,8 @@
     function 싣기(칸) { 칸그림.get(칸).forEach(function (g) { if (!g.dataset.실림) { g.dataset.실림 = "1"; g.src = g.dataset.src; } }); }
     function 내리기(칸) { 칸그림.get(칸).forEach(function (g) { if (g.dataset.실림) { delete g.dataset.실림; g.src = 빈; } }); }
     if (!window.IntersectionObserver) { 칸들.forEach(싣기); return; }
-    var 가까이 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) 싣기(e.target); }); }, { rootMargin: "400% 0px 400% 0px" });
-    var 멀리 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (!e.isIntersecting) 내리기(e.target); }); }, { rootMargin: "1000% 0px 1000% 0px" });
+    var 가까이 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) 싣기(e.target); }); }, { rootMargin: "300% 0px 300% 0px" });
+    var 멀리 = new IntersectionObserver(function (es) { es.forEach(function (e) { if (!e.isIntersecting) 내리기(e.target); }); }, { rootMargin: "600% 0px 600% 0px" });
     그림들.forEach(function (g) { g.addEventListener("error", function () { if (!g.dataset.실림 || g.getAttribute("src") === 빈) return; var n = +(g.dataset.재시도 || 0); if (n >= 3) return; g.dataset.재시도 = n + 1; setTimeout(function () { if (g.dataset.실림) g.src = g.dataset.src + "?r=" + (n + 1); }, 1500 * (n + 1)); }); });   // 09-26 페니봇: 깃허브 CDN 이 그림 하나에 503 을 뱉으면 그 칸이 빈 채로 남았다 — 1.5·3·4.5초 뒤 세 번까지 다시 받는다
     칸들.forEach(function (칸) { 가까이.observe(칸); 멀리.observe(칸); });
     window.__실린그림 = function () { return 그림들.filter(function (g) { return g.dataset.실림; }).length; };
@@ -1951,12 +1988,12 @@
     if (음악) {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (AC) { try { ctx = new AC(); master = ctx.createGain(); master.connect(ctx.destination); 덕 = ctx.createGain(); 덕.connect(master); bgmBus = ctx.createGain(); 먹먹 = ctx.createBiquadFilter(); 먹먹.type = "lowpass"; 먹먹.frequency.value = 20000; bgmBus.connect(먹먹); 먹먹.connect(덕); sfxBus = ctx.createGain(); sfxBus.connect(master); 크기적용(); ctx.resume(); } catch (e) { ctx = null; } }
-      Object.keys(곡원본).forEach(function (n) {
+      // 폰은 첫 손길 안에서 한 번씩 틀어 둬야 나중에 알아서 틀 수 있다 — 곡 슬롯 넷·환경 슬롯 둘만 열고, 이후엔 src 만 갈아 끼운다(09-26 페니봇, 아이폰 메모리)
+      Object.keys(곡원본).slice(0, 4).forEach(function (n) {
         var s = 준비(n), p = s.el.play();
         if (p && p.then) p.then(function () { if (지금.t !== n) s.el.pause(); }).catch(function () {}); else if (지금.t !== n) s.el.pause();
       });
-      // 폰은 첫 손길 안에서 한 번씩 틀어 둬야 나중에 알아서 틀 수 있다 — 환경음도
-      Object.keys(환경원본).forEach(function (n) {
+      Object.keys(환경원본).slice(0, 2).forEach(function (n) {
         var s2 = 환경준비(n), p2 = s2.el.play();
         if (p2 && p2.then) p2.then(function () { if (지금환경.t !== n) s2.el.pause(); }).catch(function () {}); else if (지금환경.t !== n) s2.el.pause();
       });
@@ -1967,6 +2004,7 @@
     재기(); 지금칸 = -2; 환경칸 = -2; 스크롤();
   }
 
+  window.__소리상태 = function () { function f(s) { return [s.이름, !s.el.paused, s.gain ? Math.round(s.gain.gain.value * 100) / 100 : s.el.volume, Math.round(s.el.currentTime)]; } return { 곡: 곡풀.map(f), 환경: 환경풀.map(f), 지금: 지금.t, 지금환경: 지금환경.t }; };   // 검사용(09-26)
   document.getElementById("켜고").addEventListener("click", function () { 시작(true); });
   (function () {   // 앱 안 브라우저(카톡 등)는 메모리 한도가 낮아 효과에서 튕긴다(09-26 아이폰 카톡) — 기본 브라우저로 넘기기 단추
     var ua = navigator.userAgent || "", 카톡 = /KAKAOTALK/i.test(ua);
