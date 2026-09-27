@@ -39,6 +39,25 @@
   #시작 .작가 b { color: #f4f1ea; font-weight: 700; margin-left: 5px; letter-spacing: .04em; }
   #시작 .설명 { margin: 26px 0 22px; font-size: 13px; line-height: 1.7; color: #a8a298; word-break: keep-all; }
   #시작 .단추 { display: flex; flex-direction: column; gap: 10px; }
+  /* 댓글 (페니봇 09-27) — 첫 화면·끝 화면에서 여는 판. 고워페 /공개/댓글 에 저장 */
+  #댓글판 { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.72); display: none; align-items: flex-end; justify-content: center; }
+  #댓글판.열림 { display: flex; }
+  #댓글판 .속 { width: min(100vw, 560px); max-height: 88vh; background: #141414; color: #eee; border-radius: 16px 16px 0 0; display: flex; flex-direction: column;
+    font: 14px/1.5 -apple-system, "Malgun Gothic", sans-serif; box-shadow: 0 -8px 40px rgba(0,0,0,.6); padding-bottom: env(safe-area-inset-bottom); }
+  #댓글판 .머리 { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #2a2a2a; }
+  #댓글판 .머리 b { font-size: 15px; } #댓글수 { color: #999; font-size: 12px; flex: 1; }
+  #댓글닫기 { background: none; border: 0; color: #bbb; font-size: 20px; padding: 4px 8px; cursor: pointer; }
+  #댓글목록 { overflow: auto; flex: 1; padding: 0 16px; min-height: 120px; -webkit-overflow-scrolling: touch; }
+  #댓글목록 .댓글 { padding: 10px 0; border-bottom: 1px solid #222; }
+  #댓글목록 .댓글 b { color: #e8c872; font-weight: 600; margin-right: 6px; } #댓글목록 .댓글 time { color: #777; font-size: 11px; }
+  #댓글목록 .댓글 p { margin: 3px 0 0; white-space: pre-wrap; word-break: break-word; color: #ddd; }
+  #댓글목록 .빈말 { color: #888; padding: 24px 0; text-align: center; }
+  #댓글쓰기 { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid #2a2a2a; background: #111; position: relative; }
+  #댓글쓰기 input, #댓글쓰기 textarea { width: 100%; box-sizing: border-box; background: #1e1e1e; border: 1px solid #333; border-radius: 10px; color: #eee; font: 14px/1.5 inherit; padding: 8px 10px; }
+  #댓글쓰기 input { grid-column: 1 / 2; } #댓글쓰기 textarea { grid-column: 1 / 3; resize: none; height: 72px; }
+  #댓글쓰기 button { grid-column: 2 / 3; grid-row: 1; padding: 8px 16px; border-radius: 10px; border: 0; background: #e8c872; color: #1a1a1a; font-weight: 700; cursor: pointer; }
+  #댓글쓰기 button:disabled { opacity: .5; } #댓글알림 { grid-column: 1 / 3; font-size: 12px; color: #999; min-height: 16px; }
+  #댓글쓰기 .숨김칸 { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
   #인앱 { margin: 0 0 14px; padding: 14px 16px; border: 1px solid #e8c872; border-radius: 12px; color: #f4f1ea; display: flex; flex-direction: column; gap: 6px; }
   #인앱[hidden] { display: none; }
   #인앱 > strong { font-size: 14px; color: #e8c872; }
@@ -542,6 +561,7 @@
       <button id="몰입켜기" disabled><strong>불러오는 중…</strong><small>연출대로 한 칸씩 · 스페이스·↓ / 폰은 탭</small></button>
       <button id="켜고" disabled><strong>일반 스크롤로 보기</strong><small>원하는 속도로 내려 읽어요</small></button>
       <button id="원본" disabled><strong>원고만 보기</strong><small>음악·효과 없이 스크롤로</small></button>
+      <button id="댓글단추"><strong>댓글</strong><small>읽은 분들의 한마디 · 남기기</small></button>
     </div>
   </div>
 </div>
@@ -549,7 +569,12 @@
 <button id="전체" aria-label="전체 화면">⛶</button>
 <div class="막칸" id="막위"></div><div class="막칸" id="막아래"></div>
 <div id="넘김"><button id="앞" aria-label="이전 칸">▲</button><span id="쪽수">1 / 1</span><button id="뒤" aria-label="다음 칸">▼</button></div>
-<div id="끝판"><p class="감사">곡 선정과 편곡을 도와주신<br>희라 음악감독님 감사합니다.</p><p class="출처">음악 · Rachmaninoff, Piano Concerto No.2 II (Musopen, 퍼블릭 도메인) · Élégie Op.3 No.1, 연주 Oksana Yevsyukova (Wikimedia Commons, CC BY-SA 3.0) · Moments musicaux Op.16 No.3 (Wikimedia Commons, Al Goldstein collection, CC BY-SA 2.0) · Vocalise Op.34 No.14, 편곡 M. Press (Wikimedia Commons, Al Goldstein collection, CC BY-SA 2.0) · Prelude Op.32 No.10 (Wikimedia Commons, 퍼블릭 도메인) · 효과음 Freesound (CC0)</p><div class="단추들"><button id="처음부터">처음부터 다시</button><button id="자유끝">자유 스크롤로 보기</button></div></div>
+<div id="끝판"><p class="감사">곡 선정과 편곡을 도와주신<br>희라 음악감독님 감사합니다.</p><p class="출처">음악 · Rachmaninoff, Piano Concerto No.2 II (Musopen, 퍼블릭 도메인) · Élégie Op.3 No.1, 연주 Oksana Yevsyukova (Wikimedia Commons, CC BY-SA 3.0) · Moments musicaux Op.16 No.3 (Wikimedia Commons, Al Goldstein collection, CC BY-SA 2.0) · Vocalise Op.34 No.14, 편곡 M. Press (Wikimedia Commons, Al Goldstein collection, CC BY-SA 2.0) · Prelude Op.32 No.10 (Wikimedia Commons, 퍼블릭 도메인) · 효과음 Freesound (CC0)</p><div class="단추들"><button id="댓글끝">댓글 남기기</button><button id="처음부터">처음부터 다시</button><button id="자유끝">자유 스크롤로 보기</button></div></div>
+<div id="댓글판" role="dialog" aria-label="댓글"><div class="속">
+  <div class="머리"><b>댓글</b><span id="댓글수"></span><button id="댓글닫기" aria-label="닫기">✕</button></div>
+  <div id="댓글목록"></div>
+  <form id="댓글쓰기" autocomplete="off"><input id="댓글닉" maxlength="20" placeholder="닉네임 (비우면 익명)"><button id="댓글올리기" type="submit">올리기</button><textarea id="댓글글" maxlength="500" placeholder="한마디 남겨주세요 (500자)"></textarea><input class="숨김칸" id="댓글메일" tabindex="-1" autocomplete="off"><span id="댓글알림"></span></form>
+</div></div>
 <div id="볼륨" role="dialog" aria-label="소리 크기">
   <label><span>음악</span><input id="음악크기" type="range" min="0" max="100" step="5"></label>
   <label><span>효과음</span><input id="효과크기" type="range" min="0" max="100" step="5"></label>
@@ -1610,6 +1635,7 @@
     if (몰입중) e.preventDefault();
   }, { passive: false });
   window.addEventListener("keydown", function (e) {
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;   // 댓글 칸에서 스페이스가 칸을 넘기지 않게(09-27)
     if ((e.ctrlKey || e.metaKey) && /^[=+\-0]$/.test(e.key)) { if (!몰입중 && document.documentElement.classList.contains("효과없음")) return; e.preventDefault(); return; }
     if (!몰입중) return;
     if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat) 다음(); }
@@ -1621,6 +1647,7 @@
   window.addEventListener("touchmove", function (e) { if (몰입중) e.preventDefault(); }, { passive: false });
   window.addEventListener("touchend", function (e) {
     if (!몰입중 || !손) return;
+    if (window.__댓글열림 && window.__댓글열림()) { 손 = null; return; }
     var dy = e.changedTouches[0].clientY - 손.y; 손 = null;
     if (dy < -35) 다음(); else if (dy > 35) 이전();     // 짧은 탭은 click 으로 처리된다
   });
@@ -2025,6 +2052,45 @@
   document.getElementById("전체").addEventListener("click", function (e) { e.stopPropagation(); if (전체인가()) 전체끄기(); else 전체켜기(); });
   document.getElementById("몰입켜기").addEventListener("click", function () { 전체켜기(); 시작(true); 몰입켜기(); });
   document.getElementById("자유로").addEventListener("click", function () { if (window.__몰입().켜짐) window.__몰입끄기(); else window.__몰입켜기(); document.getElementById("볼륨").classList.remove("열림"); });
+  // ── 댓글(페니봇 09-27): 고워페 서버의 공개 창구. 로그인 없이 닉네임+글. 화면엔 textContent 로만 붙인다(HTML 안 섞임) ──
+  (function () {
+    var 주소 = "https://gws0924.com/공개/댓글", 작품 = "캥거루";
+    var 판 = document.getElementById("댓글판"), 목록 = document.getElementById("댓글목록"), 수 = document.getElementById("댓글수");
+    var 닉 = document.getElementById("댓글닉"), 글 = document.getElementById("댓글글"), 알림 = document.getElementById("댓글알림"), 올리기 = document.getElementById("댓글올리기");
+    var 열림 = false; window.__댓글열림 = function () { return 열림; };
+    try { 닉.value = localStorage.getItem("캥거루_댓글닉") || ""; } catch (e) {}
+    function 붙이기(c) {
+      var d = document.createElement("div"); d.className = "댓글";
+      var b = document.createElement("b"); b.textContent = c.닉 || "익명"; var t = document.createElement("time"); t.textContent = c.때 || "";
+      var p = document.createElement("p"); p.textContent = c.글 || "";
+      d.appendChild(b); d.appendChild(t); d.appendChild(p); 목록.appendChild(d);
+    }
+    function 빈말(글자) { var e = document.createElement("div"); e.className = "빈말"; e.textContent = 글자; 목록.textContent = ""; 목록.appendChild(e); }
+    function 불러오기() {
+      빈말("불러오는 중…");
+      fetch(주소 + "?작품=" + encodeURIComponent(작품) + "&t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+        var 것 = (d.댓글 || []).slice().reverse();
+        if (!것.length) 빈말("아직 댓글이 없어요. 첫 한마디를 남겨주세요."); else { 목록.textContent = ""; 것.forEach(붙이기); }
+        수.textContent = d.전체 ? d.전체 + "개" : "";
+      }).catch(function () { 빈말("댓글을 못 불러왔어요. 잠시 뒤 다시 열어주세요."); });
+    }
+    function 열기() { 판.classList.add("열림"); 열림 = true; 알림.textContent = ""; 불러오기(); }
+    function 닫기() { 판.classList.remove("열림"); 열림 = false; }
+    document.getElementById("댓글단추").addEventListener("click", function (e) { e.stopPropagation(); 열기(); });
+    document.getElementById("댓글끝").addEventListener("click", function (e) { e.stopPropagation(); 열기(); });
+    document.getElementById("댓글닫기").addEventListener("click", function (e) { e.stopPropagation(); 닫기(); });
+    판.addEventListener("click", function (e) { e.stopPropagation(); if (e.target === 판) 닫기(); });
+    document.getElementById("댓글쓰기").addEventListener("submit", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var 내용 = 글.value.trim(); if (!내용) { 알림.textContent = "내용을 적어주세요."; return; }
+      올리기.disabled = true; 알림.textContent = "올리는 중…";
+      try { localStorage.setItem("캥거루_댓글닉", 닉.value.trim()); } catch (x) {}
+      fetch(주소, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 작품: 작품, 닉: 닉.value.trim(), 글: 내용, 메일: document.getElementById("댓글메일").value }) })
+        .then(function (r) { return r.json().then(function (d) { return [r.status, d]; }); })
+        .then(function (x) { 올리기.disabled = false; if (x[0] === 200 && x[1].됨) { 글.value = ""; 알림.textContent = "올렸어요. 고마워요!"; 불러오기(); } else 알림.textContent = x[1].오류 || "못 올렸어요."; })
+        .catch(function () { 올리기.disabled = false; 알림.textContent = "서버에 못 닿았어요. 잠시 뒤 다시."; });
+    });
+  })();
   document.getElementById("처음부터").addEventListener("click", function (e) { e.stopPropagation(); 컷들.forEach(function (c) { delete c.dataset.닿음; c.classList.remove("재생", "울림", "꺼짐", "켜짐", "되감기"); }); document.querySelectorAll("#원고 .글자.뜸").forEach(function (g) { g.classList.remove("뜸"); delete g.dataset.울림; }); 잠금까지 = 0; window.__몰입가기(0);   /* 09-25: 다시 볼 때 효과·소리가 다시 나오게 — 한 번 울린 표시를 지운다 */ document.getElementById("끝판").classList.remove("보임"); document.getElementById("넘김").classList.remove("숨김"); });
   document.getElementById("자유끝").addEventListener("click", function (e) { e.stopPropagation(); window.__몰입끄기(); });
   var 판 = document.getElementById("볼륨"), 음악칸 = document.getElementById("음악크기"), 효과칸 = document.getElementById("효과크기");
@@ -2035,7 +2101,7 @@
   // 몰입형: 화면 어디를 탭해도 다음(줄인 칸 바깥 여백·막 위 포함). 단추·볼륨판·시작 화면은 빼고 — 09-24 폰에서 탭이 안 넘어가던 버그
   document.addEventListener("click", function (e) {
     if (!window.__몰입().켜짐) return;
-    if (e.target.closest && e.target.closest("button, a, input, #볼륨, #넘김, #끝판, #시작")) return;
+    if (e.target.closest && e.target.closest("button, a, input, textarea, #볼륨, #넘김, #끝판, #시작, #댓글판")) return;
     window.__다음();
   });
   음악칸.addEventListener("input", function () { 설정.음악 = this.value / 100; 크기적용(); 저장하기(); });
